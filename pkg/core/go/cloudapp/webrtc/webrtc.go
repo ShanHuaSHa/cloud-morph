@@ -78,7 +78,7 @@ func NewWebRTC() *WebRTC {
 	w := &WebRTC{
 		ID: uuid.Must(uuid.NewV4()).String(),
 
-		ImageChannel: make(chan rtp.Packet, 30),
+		ImageChannel: make(chan rtp.Packet, 30),// 设置的大一点
 		AudioChannel: make(chan []byte, 1),
 		InputChannel: make(chan []byte, 100),
 	}
@@ -182,7 +182,6 @@ func (w *WebRTC) StartClient(isMobile bool, iceCB OnIceCallback, ssrc uint32) (s
 			// finish, send null
 			iceCB("")
 		}
-
 	})
 
 	// Stream provider supposes to send offer
@@ -214,8 +213,8 @@ func (w *WebRTC) SetRemoteSDP(remoteSDP string) error {
 	}
 
 	fmt.Println(answer)
-	fmt.Println("w", w)
-	fmt.Println("Wconnection", w.connection)
+	fmt.Println("w: ", w)
+	fmt.Println("Wconnection: ", w.connection)
 	err = w.connection.SetRemoteDescription(answer)
 	if err != nil {
 		log.Println("Set remote description from peer failed")
@@ -275,6 +274,7 @@ func (w *WebRTC) IsConnected() bool {
 func (w *WebRTC) startStreaming(vp8Track *webrtc.Track, opusTrack *webrtc.Track) {
 	log.Println("Start streaming")
 	// receive frame buffer
+	// 视频流
 	go func() {
 		// defer func() {
 		// 	if r := recover(); r != nil {
@@ -287,16 +287,21 @@ func (w *WebRTC) startStreaming(vp8Track *webrtc.Track, opusTrack *webrtc.Track)
 			// packets := vp8Track.Packetizer().Packetize(data.Data, 1)
 			// for _, p := range packets {
 			// 	p.Header.Timestamp = data.Timestamp
+
+			// 往视频轨中写入packet
 			err := vp8Track.WriteRTP(&packet)
 			if err != nil {
 				log.Println("Warn: Err write sample: ", err)
 				break
+			}else {
+				log.Println("video stream")
 			}
 			// }
 		}
 	}()
 
 	// send audio
+	// 音频流
 	go func() {
 		// defer func() {
 		// 	if r := recover(); r != nil {
@@ -315,6 +320,8 @@ func (w *WebRTC) startStreaming(vp8Track *webrtc.Track, opusTrack *webrtc.Track)
 			})
 			if err != nil {
 				log.Println("Warn: Err write sample: ", err)
+			}else {
+				log.Println("audio stream")
 			}
 		}
 	}()
@@ -341,6 +348,7 @@ func (w *WebRTC) StreamRTP(offer webrtc.SessionDescription, ssrc uint32) *webrtc
 	}
 
 	// Create a video track, using the same SSRC as the incoming RTP Pack)
+	// 使用相同的ssrc，标识是相同的同步信源。
 	videoTrack, err := w.connection.NewTrack(webrtc.DefaultPayloadTypeVP8, ssrc, "video", "pion")
 	if err != nil {
 		panic(err)

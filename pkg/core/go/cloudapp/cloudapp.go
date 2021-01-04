@@ -57,9 +57,10 @@ const eventMouseUp = "MOUSEUP"
 var cuRTPPort = startRTPPort
 
 // NewCloudAppClient returns new cloudapp client
+// 用的是TCP
 func NewCloudAppClient(cfg config.Config, appEvents chan Packet) *ccImpl {
 	c := &ccImpl{
-		videoStream: make(chan rtp.Packet, 1),
+		videoStream: make(chan rtp.Packet, 4096),// 视频流增大
 		appEvents:   appEvents,
 	}
 

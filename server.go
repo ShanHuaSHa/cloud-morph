@@ -81,6 +81,7 @@ func (s *Server) WS(w http.ResponseWriter, r *http.Request) {
 		// TODO: can we be stricter?
 		return true
 	}
+
 	// be aware of ReadBufferSize, WriteBufferSize (default 4096)
 	// https://pkg.go.dev/github.com/gorilla/websocket?tab=doc#Upgrader
 	c, err := upgrader.Upgrade(w, r, nil)
@@ -103,6 +104,7 @@ func (s *Server) WS(w http.ResponseWriter, r *http.Request) {
 	serviceClient.Route(s.capp.GetSSRC())
 	log.Println("Initialized ServiceClient")
 
+	// 聊天历史记录
 	s.chat.SendChatHistory(clientID)
 	apps, err := s.GetApps()
 	if err == nil {
@@ -150,6 +152,7 @@ func NewServer() *Server {
 		discoveryHandler: NewDiscovery(cfg.DiscoveryHost),
 	}
 
+	// 路由
 	r := mux.NewRouter()
 	r.HandleFunc("/ws", server.WS)
 	r.HandleFunc("/echo", func(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +162,7 @@ func NewServer() *Server {
 	if cfg.DiscoveryHost != "" {
 		r.HandleFunc("/apps", server.GetAppsHandler)
 	}
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web"))))
+	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./web"))))
 	r.PathPrefix("/").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			tmpl, err := template.ParseFiles(indexPage)
@@ -225,7 +228,9 @@ func (o *Server) ListenAndServe() error {
 	return o.httpServer.ListenAndServe()
 }
 
+// 监视器
 func monitor() {
+	// 多路复用处理函数
 	monitoringServerMux := http.NewServeMux()
 
 	srv := http.Server{
@@ -236,6 +241,7 @@ func monitor() {
 
 	pprofPath := fmt.Sprintf("/debug/pprof")
 	log.Println("Profiling is enabled at", srv.Addr+pprofPath)
+	// 类似于路由绑定
 	monitoringServerMux.Handle(pprofPath+"/", http.HandlerFunc(pprof.Index))
 	monitoringServerMux.Handle(pprofPath+"/cmdline", http.HandlerFunc(pprof.Cmdline))
 	monitoringServerMux.Handle(pprofPath+"/profile", http.HandlerFunc(pprof.Profile))
@@ -249,14 +255,16 @@ func monitor() {
 	monitoringServerMux.Handle(pprofPath+"/heap", pprof.Handler("heap"))
 	monitoringServerMux.Handle(pprofPath+"/mutex", pprof.Handler("mutex"))
 	monitoringServerMux.Handle(pprofPath+"/threadcreate", pprof.Handler("threadcreate"))
-	go srv.ListenAndServe()
 
+	// 设置服务器监听端口
+	go srv.ListenAndServe()
 }
 
 func main() {
-	// HTTP server
+	// HTTP server ？？？
 	// TODO: Make the communication over websocket
 	http.Handle("/assets/", http.StripPrefix("/assets", http.FileServer(http.Dir("./assets"))))
+
 	monitor()
 	server := NewServer()
 	server.Handle()
